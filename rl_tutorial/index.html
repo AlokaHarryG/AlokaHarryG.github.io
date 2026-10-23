@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>从试错到校准：PPO、GRPO 与 RLCD 是怎样一步步长出来的 · 交互式动画教程</title>
+<meta name="description" content="面向新手的交互式动画教程：从强化学习基础出发，一步步推导出 PPO、GRPO 与 RLCD（Reinforcement Learning for Calibrated Decisions）。每个动画背后都是真实运行的算法，公式对照原论文。">
+<link rel="stylesheet" href="lib/katex/katex.min.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/figures.css">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到正文</a>
+<div class="progress" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="hero-bg" data-fig="herobg" aria-hidden="true"></div>
+  <div class="hero-inner">
+    <span class="kicker">INTERACTIVE TUTORIAL · 交互式动画教程</span>
+    <h1>从试错到校准：<br><span class="grad">PPO → GRPO → RLCD</span><br>是怎样一步步长出来的</h1>
+    <p class="lede">强化学习只靠一个"分数"来学习。本教程从最基础的智能体–环境循环讲起，用 18 个可交互的动画带你看清：每一代方法分别解决了上一代的什么问题。动画背后都是真实运行的算法，公式逐一对照原论文。</p>
+    <div class="hero-chips">
+      <span class="chip">零基础可读</span>
+      <span class="chip">18 个交互动画</span>
+      <span class="chip">公式对照原论文</span>
+      <a class="chip" href="#refs">原论文与本地 PDF →</a>
+    </div>
+    <div class="lineage" data-fig="lineage"></div>
+    <p class="hero-hint">一条演化主线：点击任一节点跳到对应章节</p>
+  </div>
+</header>
+
+<div class="page">
+<nav class="toc" aria-label="目录">
+  <p class="toc-title">目录</p>
+  <ol>
+    <li style="--chap:var(--ink-2)"><a href="#intro"><span class="n">00</span>导读：一张路线图</a></li>
+    <li style="--chap:var(--c-rl)"><a href="#ch1"><span class="n">01</span>强化学习基础</a>
+      <ol class="sub"><li><a href="#ch1-loop">交互循环</a></li><li><a href="#ch1-return">折扣回报</a></li><li><a href="#ch1-value">价值与 Bellman 方程</a></li></ol></li>
+    <li style="--chap:var(--c-pg)"><a href="#ch2"><span class="n">02</span>策略梯度</a>
+      <ol class="sub"><li><a href="#ch2-pg">REINFORCE</a></li><li><a href="#ch2-baseline">基线与方差</a></li></ol></li>
+    <li style="--chap:var(--c-ac)"><a href="#ch3"><span class="n">03</span>Actor-Critic 与 GAE</a>
+      <ol class="sub"><li><a href="#ch3-ac">评论家与优势</a></li><li><a href="#ch3-gae">GAE</a></li></ol></li>
+    <li style="--chap:var(--c-ppo)"><a href="#ch4"><span class="n">04</span>TRPO → PPO</a>
+      <ol class="sub"><li><a href="#ch4-problem">步子太大的问题</a></li><li><a href="#ch4-trpo">TRPO 信任域</a></li><li><a href="#ch4-clip">PPO 裁剪</a></li></ol></li>
+    <li style="--chap:var(--c-rlhf)"><a href="#ch5"><span class="n">05</span>用 PPO 训练大模型</a>
+      <ol class="sub"><li><a href="#ch5-mdp">语言模型即策略</a></li><li><a href="#ch5-pipeline">RLHF 三步走</a></li><li><a href="#ch5-cost">四个模型的代价</a></li></ol></li>
+    <li style="--chap:var(--c-grpo)"><a href="#ch6"><span class="n">06</span>GRPO</a>
+      <ol class="sub"><li><a href="#ch6-idea">组内相对优势</a></li><li><a href="#ch6-obj">目标函数与 KL</a></li><li><a href="#ch6-r1">DeepSeek-R1 与 RLVR</a></li><li><a href="#ch6-flaw">遗留问题</a></li></ol></li>
+    <li style="--chap:var(--c-rlcd)"><a href="#ch7"><span class="n">07</span>RLCD：校准的决策</a>
+      <ol class="sub"><li><a href="#ch7-why">为什么要校准</a></li><li><a href="#ch7-proper">恰当评分规则</a></li><li><a href="#ch7-identity">方差恒等式</a></li><li><a href="#ch7-fail">两种失败模式</a></li><li><a href="#ch7-algo">先校准，再强化</a></li><li><a href="#ch7-results">实验结果</a></li></ol></li>
+    <li style="--chap:var(--c-ppo)"><a href="#ch8"><span class="n">08</span>总结：一条主线</a></li>
+    <li style="--chap:var(--ink-2)"><a href="#refs"><span class="n">↗</span>参考文献与 PDF</a></li>
+  </ol>
+</nav>
+
+<main class="article" id="main">
+<section class="chapter" id="intro" style="--chap:var(--ink-2)">
+  <div class="chapter-head"><div class="chapter-num">00</div><div><div class="eyebrow">导读</div><h2>只给分数，不给答案，模型怎么学？</h2><p class="tagline">先看清整条路线，再一站一站地走。</p></div></div>
+  <p>教一个模型做事，有两种截然不同的方式。<strong>监督学习</strong>像老师批改作业时直接写出标准答案："这道题应该选 B"。<strong>强化学习</strong>（Reinforcement Learning, RL）则像一位只打分的教练：你做完一整套动作，他说"72 分"。他不告诉你哪一步错了，也不告诉你正确动作长什么样，你只能自己反复尝试，慢慢摸索出高分的做法。</p>
+  <p>大模型的后训练越来越依赖第二种方式：让人类偏好打分（RLHF）、让程序判卷打分（RLVR），以及本教程最后要讲的，让"说出的概率是否靠谱"来打分（RLCD）。这些方法看上去五花八门，其实都在回答同一串问题：</p>
+  <ol class="roadmap wide">
+    <li style="--c:var(--c-rl)"><b>基础 RL</b><span>智能体、环境、奖励、回报、价值：先把"分数"说清楚。</span></li>
+    <li style="--c:var(--c-pg)"><b>策略梯度</b><span>直接调整"选每个动作的概率"。问题：梯度噪声极大。</span></li>
+    <li style="--c:var(--c-ac)"><b>Actor-Critic + GAE</b><span>请一位"评论家"估计平均水平，只奖励"比平均好"的部分。</span></li>
+    <li style="--c:var(--c-ppo)"><b>TRPO → PPO</b><span>步子迈太大会把策略学坏，PPO 用"裁剪"把更新幅度限制住。</span></li>
+    <li style="--c:var(--c-rlhf)"><b>RLHF-PPO</b><span>把每个 token 当作一个动作。代价：训练时要同时摆四个大模型。</span></li>
+    <li style="--c:var(--c-grpo)"><b>GRPO</b><span>去掉评论家，让同一道题的一组回答互相当基线。省显存，也更适合判卷式奖励。</span></li>
+    <li style="--c:var(--c-rlcd)"><b>RLCD</b><span>只奖励"答对"会让模型过度自信。RLCD 把奖励换成恰当评分规则，让模型说出的概率与实际正确率一致。</span></li>
+  </ol>
+  <div class="callout"><span class="label">怎么读</span><p>每张图右上角有一个标签：<b class="tag-live">实时计算</b> 表示动画里的数字由页面上真实运行的算法算出（源码见 <code>js/math/</code>，并附有单元测试）；<b class="tag-schematic">示意</b> 表示为了讲清楚而做了简化；<b class="tag-paper">论文数据</b> 表示数字直接取自原论文的表格。拖动滑块、点击按钮，都会让算法重新运行。</p></div>
+</section>
+
+<section class="chapter" id="ch1" style="--chap:var(--c-rl)">
+  <div class="chapter-head"><div class="chapter-num">01</div><div><div class="eyebrow">Chapter 1 · Basics</div><h2>强化学习基础：一个只认分数的学徒</h2><p class="tagline">智能体、环境、奖励、回报、价值，以及把它们串起来的 Bellman 方程。</p></div></div>
+
+  <h3 id="ch1-loop">智能体与环境的循环</h3>
+  <p>强化学习里有两个角色。<span class="term" data-tip="做决策的一方，例如机器人、下棋程序，或者一个大语言模型。">智能体</span>（agent）负责做决定；<span class="term" data-tip="智能体之外的一切：它接收动作、改变状态、给出奖励。">环境</span>（environment）负责回应。每一个时间步 $t$：</p>
+  <ol>
+    <li>智能体观察到当前<strong>状态</strong> $s_t$（比如机器人在迷宫中的位置）；</li>
+    <li>按照自己的<strong>策略</strong> $\pi(a\mid s)$（在状态 $s$ 下选每个动作的概率）选出一个<strong>动作</strong> $a_t$；</li>
+    <li>环境转移到新状态 $s_{t+1}$，并给出一个标量<strong>奖励</strong> $r_t$。</li>
+  </ol>
+  <p>这样循环下去，就得到一条<strong>轨迹</strong> $\tau=(s_0,a_0,r_0,s_1,a_1,r_1,\dots)$。整个学习过程的唯一信号就是这些奖励。它们往往很稀疏：下图中的机器人只有走到终点才拿到 +1，掉进岩浆则得到 −1，其余每一步都是 0。</p>
+  <figure class="fig wide" id="fig-loop">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 1.1</span>智能体–环境循环与折扣回报</div><span class="badge live">实时计算</span></div>
+    <div data-fig="loop"></div>
+    <figcaption class="fig-caption"><p>机器人每走一步，就把 $(s_t, a_t, r_t)$ 记进下方的"轨迹带"。回合结束后，从后往前计算每一步的折扣回报 $G_t$。拖动 $\gamma$ 可以看到：离终点越远的步骤，分到的"功劳"衰减得越多。</p></figcaption>
+  </figure>
+
+  <h3 id="ch1-return">目标：最大化折扣回报</h3>
+  <p>智能体追求的不是某一步的奖励，而是从现在起的<strong>累计</strong>奖励。由于未来更不确定，越远的奖励打的折扣越多：</p>
+  <div class="eq">$$G_t \;=\; r_t + \gamma\, r_{t+1} + \gamma^2 r_{t+2} + \cdots \;=\; \sum_{k=0}^{\infty} \gamma^k\, r_{t+k} \;=\; r_t + \gamma\, G_{t+1}$$</div>
+  <p>其中 $\gamma\in[0,1]$ 是<strong>折扣因子</strong>。$\gamma=0$ 的智能体只看眼前；$\gamma$ 越接近 1，它就越有远见。最右边的递推式 $G_t=r_t+\gamma G_{t+1}$ 很重要：它说明回报可以<strong>从后往前</strong>一步步算出来。后面的 GAE、Bellman 方程都是这个思想。</p>
+  <h3 id="ch1-value">价值函数与 Bellman 方程</h3>
+  <p>"这个位置好不好？"可以用<strong>状态价值</strong>来回答：从状态 $s$ 出发、按策略 $\pi$ 行动，平均能拿到多少回报。类似地，<strong>动作价值</strong>回答"在 $s$ 先做 $a$，之后再按 $\pi$ 走，平均能拿多少"：</p>
+  <div class="eq">$$V^{\pi}(s)=\mathbb{E}_{\pi}\big[\,G_t \mid s_t=s\,\big],\qquad Q^{\pi}(s,a)=\mathbb{E}_{\pi}\big[\,G_t \mid s_t=s,\ a_t=a\,\big]$$</div>
+  <p>把 $G_t=r_t+\gamma G_{t+1}$ 代进去，就得到强化学习最核心的一致性条件：<strong>Bellman 方程</strong>。对最优策略，它写成</p>
+  <div class="eq">$$V^{*}(s)=\max_{a}\ \mathbb{E}\big[\,{\color{#0f9b8e}r_t} + \gamma\, {\color{#2f6fdf}V^{*}(s_{t+1})} \,\big|\, s_t=s,\ a_t=a\,\big]$$
+    <div class="eq-legend"><div><span class="sw" style="background:#0f9b8e"></span>这一步立刻拿到的奖励</div><div><span class="sw" style="background:#2f6fdf"></span>下一个状态的价值，打 $\gamma$ 折</div><div>一个位置的价值 = 选最好的动作后，"眼前收益 + 打折后的未来"</div></div></div>
+  <p>反复用这个式子更新每个格子的估计值，就是<strong>价值迭代</strong>（value iteration）。下图中，价值像涟漪一样从终点向外扩散，每扩散一格就乘一次 $\gamma$。</p>
+  <figure class="fig wide" id="fig-grid">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 1.2</span>网格世界中的价值迭代</div><span class="badge live">实时计算</span></div>
+    <div data-fig="grid"></div>
+    <figcaption class="fig-caption"><p>每按一次"迭代一轮"，所有格子同时做一次 Bellman 备份 $V_{k+1}(s)=\max_a[r+\gamma V_k(s')]$。点击任一格子（或用方向键移动选框），右侧会列出它四个动作的备份值。收敛后箭头就是贪心策略，按"让机器人走一遍"即可按它行动。</p></figcaption>
+  </figure>
+
+  <h3>两条路线：学价值，还是直接学策略？</h3>
+  <p>如果知道了 $Q^*$，每一步选 $\arg\max_a Q^*(s,a)$ 就行，这是 Q-learning、DQN 走的<strong>基于价值</strong>的路线。但对大语言模型来说，"动作"是从十几万个 token 中挑一个，"状态"是此前写下的整段文字，根本不可能给每个状态–动作对都存一个值。于是我们换一条路：<strong>直接学习策略本身</strong>，也就是下一章的策略梯度。</p>
+  <details class="quiz"><summary>如果把 $\gamma$ 设成 0，图 1.2 里的价值会变成什么样？</summary><div class="answer"><p>智能体只看眼前一步的奖励。只有紧挨终点的格子价值为 1（再走一步就能拿到 +1），其余格子都是 0：它们"看不到"更远的奖励，也就没有任何偏好。你可以把滑块拖到最左边验证。这也说明了为什么长程任务需要 $\gamma$ 接近 1。</p></div></details>
+</section>
+<section class="chapter" id="ch2" style="--chap:var(--c-pg)">
+  <div class="chapter-head"><div class="chapter-num">02</div><div><div class="eyebrow">Chapter 2 · Policy Gradient</div><h2>策略梯度：让好动作更可能发生</h2><p class="tagline">REINFORCE 的一行公式，以及它最大的敌人：方差。</p></div></div>
+
+  <h3 id="ch2-pg">把策略写成可微的函数</h3>
+  <p>用一个带参数 $\theta$ 的网络（大模型就是它的全部权重）为每个动作打一个分 $z_a$，再用 softmax 变成概率：$\pi_\theta(a\mid s)=e^{z_a}/\sum_b e^{z_b}$。目标是让期望回报 $J(\theta)=\mathbb{E}_{\tau\sim\pi_\theta}[G_0]$ 尽量大。</p>
+  <p>难点在于：$J$ 依赖于"采样"这个不可微的过程。<strong>对数导数技巧</strong> $\nabla_\theta \pi = \pi\,\nabla_\theta\log\pi$ 绕开了它，得到<strong>策略梯度定理</strong>（Williams 1992 的 REINFORCE，Sutton 等 1999）：</p>
+  <div class="eq">$$\nabla_\theta J(\theta) \;=\; \mathbb{E}_{\pi_\theta}\Big[\sum_t {\color{#2f6fdf}\nabla_\theta \log \pi_\theta(a_t\mid s_t)}\cdot {\color{#e0782b}G_t}\Big]$$
+    <div class="eq-legend"><div><span class="sw" style="background:#2f6fdf"></span>"往让 $a_t$ 更可能的方向推"的方向向量</div><div><span class="sw" style="background:#e0782b"></span>推多大力：这个动作之后拿到的回报</div></div></div>
+  <p>直观地说：<strong>试一下，结果好就多做，结果差就少做</strong>。对 softmax 策略，$\nabla_z\log\pi(a)=\mathbf{1}_a-\pi$，也就是被选中的动作分数上升，其余动作按概率比例下降。</p>
+
+  <h3 id="ch2-baseline">致命问题：方差，以及"减去基线"</h3>
+  <p>如果所有奖励都是正数（比如每次都得 5 分左右），那么<strong>每一个</strong>被采样到的动作都会被加强，只是加强的程度不同。好动作和坏动作都在"涨"，要靠大量样本的平均才能分出高下，单次更新的噪声极大。</p>
+  <p>解决办法是减去一个与动作无关的<strong>基线</strong> $b(s)$：</p>
+  <div class="eq">$$\nabla_\theta J(\theta) = \mathbb{E}\Big[\sum_t \nabla_\theta \log \pi_\theta(a_t\mid s_t)\,\big(G_t - {\color{#d93a63}b(s_t)}\big)\Big]$$</div>
+  <p>因为 $\mathbb{E}_{a\sim\pi}[\nabla_\theta\log\pi_\theta(a\mid s)]=\nabla_\theta\sum_a\pi_\theta(a\mid s)=\nabla_\theta 1=0$，减去基线<strong>不改变梯度的期望</strong>（仍然无偏），却能大幅降低方差：比平均好的动作被加强，比平均差的被削弱。</p>
+  <figure class="fig wide" id="fig-bandit">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 2.1</span>三臂老虎机上的 REINFORCE：有基线 vs 无基线</div><span class="badge live">实时计算</span></div>
+    <div data-fig="bandit"></div>
+    <figcaption class="fig-caption"><p>三个动作的真实平均奖励为 0.2 / 0.5 / 1.0，每次另加标准差为 1 的噪声。两种方法使用完全相同的随机种子，各跑 20 次（细线），粗线是平均。把"奖励整体平移"调大：所有奖励都加上同一个常数，最优动作不变。但<b>没有基线</b>的版本会变得极不稳定，有基线的版本几乎不受影响。</p></figcaption>
+  </figure>
+  <div class="callout"><span class="label">记住这个套路</span><p>"<strong>得分减去参照水平</strong>"会在后面反复出现。Actor-Critic 用评论家网络 $V(s)$ 当参照，GRPO 用同一道题一组回答的平均分当参照，RLCD 用"其余几条推理的平均分"当参照。这几代方法很大一部分差别，就在于<em>参照水平从哪来</em>。</p></div>
+  <details class="quiz"><summary>把所有奖励都加上 100，带基线的 REINFORCE 学习曲线会变吗？</summary><div class="answer"><p>几乎不变。基线是奖励的滑动平均，它会跟着一起上升 100，于是 $G_t-b$ 和原来一样。没有基线的版本则会把每个采样到的动作都猛推一把，方差暴增。在图 2.1 里把平移滑块拉满即可看到。</p></div></details>
+</section>
+<section class="chapter" id="ch3" style="--chap:var(--c-ac)">
+  <div class="chapter-head"><div class="chapter-num">03</div><div><div class="eyebrow">Chapter 3 · Actor-Critic</div><h2>Actor-Critic 与 GAE：请一位评论家</h2><p class="tagline">最好的基线是状态价值 $V(s)$，于是我们再训练一个网络去估计它。</p></div></div>
+
+  <h3 id="ch3-ac">演员、评论家与优势函数</h3>
+  <p>上一章的基线只是奖励的滑动平均，它不知道"在<em>这个</em>状态下平均能拿多少"。理论上最自然的基线就是 $V^\pi(s_t)$ 本身。于是同时训练两个网络：</p>
+  <ul>
+    <li><strong>演员</strong>（Actor）：策略 $\pi_\theta$，负责选动作；</li>
+    <li><strong>评论家</strong>（Critic）：价值网络 $V_\phi(s)$，负责估计"从这里出发平均能拿多少"。</li>
+  </ul>
+  <p>两者之差叫<strong>优势函数</strong>：这个动作比该状态下的平均水平好多少。</p>
+  <div class="eq">$$A^{\pi}(s_t,a_t) \;=\; Q^{\pi}(s_t,a_t) - V^{\pi}(s_t)$$</div>
+  <p>真实的 $Q$ 不知道，但可以"往前看一步"来近似。这就是<strong>时序差分误差</strong>（TD error）：</p>
+  <div class="eq">$$\delta_t \;=\; {\color{#0f9b8e}r_t + \gamma V_\phi(s_{t+1})} - {\color{#4b53d6}V_\phi(s_t)}$$
+    <div class="eq-legend"><div><span class="sw" style="background:#0f9b8e"></span>走了一步之后的"新估计"</div><div><span class="sw" style="background:#4b53d6"></span>走之前的"旧估计"</div><div>$\delta_t>0$：结果比评论家预想的好</div></div></div>
+  <p>$\delta_t$ 方差很小，但如果评论家估错了，它就是<strong>有偏</strong>的。反过来，第 2 章的 $G_t - V(s_t)$（蒙特卡洛回报）无偏，但方差很大。这就是强化学习里经典的<strong>偏差–方差权衡</strong>。</p>
+
+  <h3 id="ch3-gae">GAE：在两个极端之间连续调节</h3>
+  <p>Schulman 等人（2015）提出的<strong>广义优势估计</strong>（Generalized Advantage Estimation）把未来每一步的 TD 误差按 $(\gamma\lambda)^l$ 加权求和：</p>
+  <div class="eq">$$\hat A_t^{\mathrm{GAE}(\gamma,\lambda)} \;=\; \sum_{l=0}^{\infty} (\gamma\lambda)^l\, \delta_{t+l} \;=\; \delta_t + \gamma\lambda\, \hat A_{t+1}$$
+    <div class="eq-src">Schulman et al., 2015, arXiv:1506.02438, Eq. (16)</div></div>
+  <p>$\lambda=0$ 时只剩 $\delta_t$（低方差、可能有偏）；$\lambda=1$ 时恰好等于 $G_t-V(s_t)$（无偏、高方差）。和折扣回报一样，它也能<strong>从后往前</strong>递推。PPO 原论文在 Atari 与 MuJoCo 实验中都使用 $\gamma=0.99,\ \lambda=0.95$。</p>
+  <figure class="fig wide" id="fig-gae">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 3.1</span>从 TD 误差到 GAE：一条 8 步轨迹</div><span class="badge live">实时计算</span></div>
+    <div data-fig="gae"></div>
+    <figcaption class="fig-caption"><p>奖励只在最后一步出现（这和大模型的情形一样）。评论家的估计 $V(s_t)$ 并不完美。按"逐步回溯"会看到 $\hat A_t=\delta_t+\gamma\lambda\hat A_{t+1}$ 从最后一步一路往前算。把 $\lambda$ 拖到 0，每一步只看自己的 $\delta_t$，远处的终点奖励几乎传不到前面；拖到 1，每一步都等于"真实回报减评论家估计"。</p></figcaption>
+  </figure>
+  <details class="quiz"><summary>如果评论家完美无缺（$V_\phi=V^\pi$），$\lambda$ 取多少还重要吗？</summary><div class="answer"><p>对期望而言不重要了：此时 $\mathbb{E}[\delta_t]$ 恰好等于真实优势，任何 $\lambda$ 都无偏，$\lambda$ 只影响方差（$\lambda$ 越小方差越低）。正因为现实中的评论家并不完美，才需要用 $\lambda$ 在"信评论家"和"信真实回报"之间折中。</p></div></details>
+</section>
+<section class="chapter" id="ch4" style="--chap:var(--c-ppo)">
+  <div class="chapter-head"><div class="chapter-num">04</div><div><div class="eyebrow">Chapter 4 · Trust Region</div><h2>TRPO → PPO：别一步迈太大</h2><p class="tagline">同一批数据想多用几次，就必须限制新策略离旧策略有多远。</p></div></div>
+
+  <h3 id="ch4-problem">问题：梯度只告诉方向，不告诉步长</h3>
+  <p>策略梯度是用<em>旧策略</em>采来的数据估计出来的，只在旧策略附近可信。步子一大，新策略可能跑进一片从未探索过的区域，性能骤降；更糟的是，下一轮数据由这个变差的策略采集，错误会自我强化，很难恢复。</p>
+  <p>另一方面，采样很贵（对大模型尤其如此），我们希望<strong>同一批数据多更新几次</strong>。这需要<strong>重要性采样比</strong>来修正"数据来自旧策略"这一事实。为了不与奖励 $r_t$ 混淆，本教程把它记作 $\rho_t$（PPO 原论文写作 $r_t(\theta)$）：</p>
+  <div class="eq">$$\rho_t(\theta)=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)},\qquad L^{\mathrm{CPI}}(\theta)=\hat{\mathbb{E}}_t\big[\rho_t(\theta)\,\hat A_t\big]$$
+    <div class="eq-src">Schulman et al., 2017, arXiv:1707.06347, Eq. (6)</div></div>
+  <p>在 $\theta=\theta_{\text{old}}$ 处，$\rho_t=1$，$\nabla L^{\mathrm{CPI}}$ 恰好就是普通的策略梯度。但如果不加约束地最大化 $L^{\mathrm{CPI}}$，优化器会把好动作的 $\rho$ 推到极大，把策略推到离数据很远的地方。</p>
+
+  <h3 id="ch4-trpo">TRPO：画一个信任域</h3>
+  <p>TRPO（Schulman 等，2015）的做法很直接：在新旧策略的平均 KL 散度不超过 $\delta$ 的前提下最大化替代目标。</p>
+  <div class="eq">$$\max_\theta\ \hat{\mathbb{E}}_t\big[\rho_t(\theta)\hat A_t\big]\quad \text{s.t.}\quad \hat{\mathbb{E}}_t\Big[\mathrm{KL}\big(\pi_{\theta_{\text{old}}}(\cdot\mid s_t)\,\|\,\pi_\theta(\cdot\mid s_t)\big)\Big]\le\delta$$</div>
+  <p>它很稳定，但求解需要共轭梯度与线搜索（要用到二阶信息），实现复杂，也很难和 dropout、参数共享等常见结构配合。</p>
+
+  <h3 id="ch4-clip">PPO：用"裁剪"代替约束</h3>
+  <p>PPO 只用一阶优化，却得到了相近的效果。核心是<strong>裁剪替代目标</strong>：</p>
+  <div class="eq">$$L^{\mathrm{CLIP}}(\theta)=\hat{\mathbb{E}}_t\Big[\min\big(\,{\color{#7b4ce0}\rho_t(\theta)\hat A_t}\,,\ {\color{#e0782b}\mathrm{clip}(\rho_t(\theta),1-\epsilon,1+\epsilon)\,\hat A_t}\,\big)\Big]$$
+    <div class="eq-src">Schulman et al., 2017, Eq. (7)；论文实验中 $\epsilon=0.2$ 表现最好</div>
+    <div class="eq-legend"><div><span class="sw" style="background:#7b4ce0"></span>未裁剪的替代目标</div><div><span class="sw" style="background:#e0782b"></span>比例被夹在 $[1-\epsilon,1+\epsilon]$ 内的版本</div><div>取 $\min$：得到原目标的一个"悲观下界"</div></div></div>
+  <p>当 $\hat A>0$（好动作）时，提高它的概率有好处，但一旦 $\rho>1+\epsilon$，收益就被"封顶"，梯度变为 0，不再继续推。当 $\hat A<0$ 时同理，$\rho<1-\epsilon$ 后不再继续压低。而<strong>往坏的方向</strong>走（好动作的概率反而下降）时，$\min$ 会选未裁剪的那一项，梯度照常把它拉回来。</p>
+  <figure class="fig wide" id="fig-clip">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 4.1</span>裁剪目标长什么样</div><span class="badge live">实时计算</span></div>
+    <div data-fig="clip"></div>
+    <figcaption class="fig-caption"><p>横轴是比例 $\rho$，纵轴是单个样本对目标的贡献。拖动图中的圆点改变 $\rho$，箭头表示梯度方向与大小，灰色区域是"这个样本已经不再提供梯度"的地方。对照 PPO 原论文的 Figure 1。</p></figcaption>
+  </figure>
+  <div class="callout warn"><span class="label">常见误解</span><p>裁剪<strong>不是</strong>硬约束。$\rho$ 仍然可能跑出 $[1-\epsilon,1+\epsilon]$，因为其他样本的梯度会顺带改变它。裁剪只保证：已经越界的样本<em>自己</em>不再推波助澜。下图在一个真实的小问题上演示了这一点。</p></div>
+  <figure class="fig wide" id="fig-ppo">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 4.2</span>同一批数据更新 40 轮：裁剪 vs 不裁剪</div><span class="badge live">实时计算</span></div>
+    <div data-fig="ppo"></div>
+    <figcaption class="fig-caption"><p>一个 5 动作的 softmax 策略，从均匀分布 $\pi_{\text{old}}$ 采 16 个样本（真实平均奖励为 1.0 / 0.8 / 0.5 / 0.2 / 0.0，噪声标准差 1），优势做批内标准化。然后在<b>这一批固定数据</b>上做多轮梯度上升。不裁剪的版本会把 16 个噪声样本"背下来"，KL 一路上涨；按"重新采样"多试几次，它常常把概率全部押在一个其实并不是最好的动作上。裁剪版本的 KL 很快趋于平稳。</p></figcaption>
+  </figure>
+  <p>完整的 PPO 损失还包括评论家的回归误差，以及鼓励探索的熵奖励：</p>
+  <div class="eq">$$L^{\mathrm{CLIP+VF+S}}(\theta)=\hat{\mathbb{E}}_t\Big[L^{\mathrm{CLIP}}_t(\theta) - c_1\big(V_\theta(s_t)-V_t^{\mathrm{targ}}\big)^2 + c_2\, \mathcal{H}\big[\pi_\theta\big](s_t)\Big]$$
+    <div class="eq-src">Schulman et al., 2017, Eq. (9)</div></div>
+  <p>训练流程很简单：用 $N$ 个并行 actor 各跑 $T$ 步 → 用 GAE 算优势 → 在这批数据上用小批量 SGD/Adam 优化 $K$ 个 epoch → 令 $\theta_{\text{old}}\leftarrow\theta$，重复。简单、稳定、好调，这让 PPO 成为此后几年的默认算法，也成了下一章 RLHF 的引擎。</p>
+  <details class="quiz"><summary>某个样本 $\hat A>0$，但更新几轮后它的 $\rho=0.7$。这个样本还有梯度吗？</summary><div class="answer"><p>有。裁剪只在"有利方向越界"时生效，即 $\hat A>0$ 且 $\rho>1+\epsilon$。现在好动作的概率反而下降了，$\min$ 取的是未裁剪项 $\rho\hat A$，梯度会把它往回拉。PPO 的悲观下界只封住收益，从不封住损失。</p></div></details>
+</section>
+<section class="chapter" id="ch5" style="--chap:var(--c-rlhf)">
+  <div class="chapter-head"><div class="chapter-num">05</div><div><div class="eyebrow">Chapter 5 · RLHF</div><h2>用 PPO 训练大模型：RLHF</h2><p class="tagline">把"写一段回答"看作一局游戏，每个 token 都是一步棋。</p></div></div>
+
+  <h3 id="ch5-mdp">语言模型就是一个策略</h3>
+  <p>把强化学习的概念一一对应到文本生成上：</p>
+  <div class="table-wrap"><table class="cmp" style="min-width:560px">
+    <thead><tr><th>RL 概念</th><th>在大模型里对应什么</th></tr></thead>
+    <tbody>
+      <tr><th>状态 $s_t$</th><td>提示词 $q$ 加上已生成的前 $t$ 个 token：$(q, o_{&lt;t})$</td></tr>
+      <tr><th>动作 $a_t$</th><td>下一个 token $o_t$，从十几万大小的词表中选</td></tr>
+      <tr><th>策略 $\pi_\theta$</th><td>语言模型本身：$\pi_\theta(o_t\mid q,o_{&lt;t})$ 就是它输出的下一个 token 分布</td></tr>
+      <tr><th>状态转移</th><td>确定性的：把选中的 token 接到末尾</td></tr>
+      <tr><th>奖励</th><td>通常只在回答结束时给一次：奖励模型的打分，或判卷程序给出的对/错</td></tr>
+    </tbody></table></div>
+  <figure class="fig wide" id="fig-mdp">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 5.1</span>逐 token 生成：每一步都是一次动作选择</div><span class="badge schematic">示意</span></div>
+    <div data-fig="mdp"></div>
+    <figcaption class="fig-caption"><p>候选 token 的概率是为演示而设定的，不是某个真实模型的输出。生成结束后，奖励只出现在最后一个 token 上，其余位置只有很小的 KL 惩罚。切换到"PPO 视角"会显示评论家给每个位置的估值 $V$，以及用 GAE（$\gamma=1,\lambda=0.95$）实时算出的逐 token 优势。</p></figcaption>
+  </figure>
+
+  <h3 id="ch5-pipeline">InstructGPT 的三步走</h3>
+  <p>Christiano 等人（2017）提出从人类偏好中学习奖励；Ouyang 等人（2022，InstructGPT）把它做成了大模型对齐的标准流程：</p>
+  <ol>
+    <li><strong>SFT</strong>：用人工写的示范回答做监督微调，得到初始策略 $\pi^{\mathrm{SFT}}$。</li>
+    <li><strong>训练奖励模型</strong>：对同一个问题的两个回答，让人标注哪个更好（$y_w \succ y_l$），用 Bradley–Terry 形式训练打分器 $r_\phi$：
+      <div class="eq">$$\mathcal{L}_{\mathrm{RM}}(\phi) = -\,\mathbb{E}_{(x,y_w,y_l)}\Big[\log\sigma\big(r_\phi(x,y_w)-r_\phi(x,y_l)\big)\Big]$$</div></li>
+    <li><strong>PPO</strong>：以 $r_\phi$ 为奖励优化策略，同时用 KL 惩罚把它拴在 SFT 模型附近。DeepSeekMath 论文把每个 token 的奖励写成：
+      <div class="eq">$$r_t = {\color{#b0469e}r_\phi(q, o_{\le t})} - {\color{#e0782b}\beta \log\frac{\pi_\theta(o_t\mid q,o_{&lt;t})}{\pi_{\mathrm{ref}}(o_t\mid q,o_{&lt;t})}}$$
+        <div class="eq-src">Shao et al., 2024, arXiv:2402.03300, Eq. (2)；实践中 $r_\phi$ 只在最后一个 token 上非零</div>
+        <div class="eq-legend"><div><span class="sw" style="background:#b0469e"></span>奖励模型的打分</div><div><span class="sw" style="background:#e0782b"></span>每个 token 的 KL 惩罚：离参考模型越远扣得越多</div></div></div></li>
+  </ol>
+  <div class="callout warn"><span class="label">为什么一定要 KL</span><p>奖励模型只是人类偏好的一个<em>近似</em>。如果放任策略去最大化它，策略会找到奖励模型的漏洞，写出"分数很高但其实很糟"的回答，这叫<strong>奖励作弊</strong>（reward hacking）。KL 项让策略不要离出发点太远。</p></div>
+  <h3 id="ch5-cost">代价：显存里要同时摆四个模型</h3>
+  <p>RLHF-PPO 训练时需要四个和策略差不多大的网络：要训练的<strong>策略</strong>与<strong>价值模型</strong>（评论家），加上冻结的<strong>奖励模型</strong>与<strong>参考模型</strong>。DeepSeekMath 论文点出了两个问题：价值模型"通常是与策略同等规模的另一个模型，带来可观的显存与计算负担"；而且奖励往往只落在最后一个 token 上，要训练出在<em>每个</em> token 上都准确的价值函数本身就很难。</p>
+  <figure class="fig wide" id="fig-models">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 5.2</span>一步 RLHF 训练里，数据在四个模型之间怎样流动</div><span class="badge schematic">示意</span></div>
+    <div data-fig="models" data-mode="ppo"></div>
+    <figcaption class="fig-caption"><p>按"播放"观察一步训练的数据流。实线框是需要训练（要存梯度和优化器状态）的模型，虚线框是冻结的模型。切换到 GRPO 可以预览下一章：价值模型整个消失了。对照 DeepSeekMath 论文 Figure 4。</p></figcaption>
+  </figure>
+</section>
+
+<section class="chapter" id="ch6" style="--chap:var(--c-grpo)">
+  <div class="chapter-head"><div class="chapter-num">06</div><div><div class="eyebrow">Chapter 6 · GRPO</div><h2>GRPO：让同一道题的回答互相比较</h2><p class="tagline">去掉评论家。基线不再靠一个网络去"猜"，而是靠同题多采几次直接"量"出来。</p></div></div>
+
+  <h3 id="ch6-idea">组内相对优势</h3>
+  <p>回忆第 2 章：基线只要和动作无关，就不会引入偏差。GRPO（Shao 等，2024，DeepSeekMath）的想法是：对每个问题 $q$，从旧策略采一<strong>组</strong> $G$ 个回答 $\{o_1,\dots,o_G\}$，打完分后用<strong>组内的均值当基线、标准差做归一化</strong>：</p>
+  <div class="eq">$$\hat A_{i,t} \;=\; \tilde r_i \;=\; \frac{r_i - \mathrm{mean}(\{r_1,\dots,r_G\})}{\mathrm{std}(\{r_1,\dots,r_G\})}$$
+    <div class="eq-src">Shao et al., 2024, §4.1.2 结果监督</div></div>
+  <p>同一个回答里的<strong>所有 token 共享同一个优势</strong>。没有价值网络，也就省掉了一个与策略同等规模的模型，以及训练它的全部显存与计算。</p>
+  <figure class="fig wide" id="fig-group">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 6.1</span>一组 8 个回答：从判卷到优势</div><span class="badge live">实时计算</span></div>
+    <div data-fig="group"></div>
+    <figcaption class="fig-caption"><p>每一行是对同一道题的一次采样。判卷程序给出 0/1 奖励后，优势 = (奖励 − 组均值) / 组标准差，由页面实时计算（这里用总体标准差；不同开源实现在无偏/有偏标准差和防除零的 $\varepsilon$ 上略有差别）。<b>点击任一行可以切换它的对错</b>，观察整组优势怎样重新分配。拖动"模型正确率"再重新采样，体会难题和易题的区别。</p></figcaption>
+  </figure>
+  <div class="callout warn"><span class="label">一个重要的边界情况</span><p>如果一组回答<strong>全对</strong>或<strong>全错</strong>，标准差为 0，所有优势都是 0，这道题对本次更新<strong>毫无贡献</strong>，采样的算力白白浪费。太简单和太难的题都会这样。后续工作（如 DAPO 的"动态采样"）专门过滤掉这类题目。可以在图 6.1 中点"全部答对"看看。</p></div>
+  <h3 id="ch6-obj">目标函数：PPO 的骨架，换了两个零件</h3>
+  <div class="eq">$$\begin{aligned}\mathcal{J}_{\mathrm{GRPO}}(\theta)=\mathbb{E}\Bigg[\frac{1}{G}\sum_{i=1}^{G}\frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\Big\{&\min\Big(\rho_{i,t}\,{\color{#e0782b}\hat A_{i,t}},\ \mathrm{clip}(\rho_{i,t},1-\epsilon,1+\epsilon)\,{\color{#e0782b}\hat A_{i,t}}\Big)\\ &- {\color{#d93a63}\beta\,\mathbb{D}_{\mathrm{KL}}\big[\pi_\theta\,\|\,\pi_{\mathrm{ref}}\big]}\Big\}\Bigg]\end{aligned}$$
+    <div class="eq-src">Shao et al., 2024, Eq. (3)；$\rho_{i,t}=\pi_\theta(o_{i,t}\mid q,o_{i,&lt;t})/\pi_{\theta_{\text{old}}}(o_{i,t}\mid q,o_{i,&lt;t})$</div>
+    <div class="eq-legend"><div><span class="sw" style="background:#e0782b"></span>零件一：组内相对优势，代替 GAE + 价值网络</div><div><span class="sw" style="background:#d93a63"></span>零件二：KL 直接加在损失里，而不是混进每个 token 的奖励</div></div></div>
+  <p>裁剪部分和 PPO 一模一样。KL 移到损失里之后，优势的计算就不会被 KL 项搅乱。KL 本身则用一个特别的估计器来算。记 $x=\pi_{\mathrm{ref}}(o_{i,t}\mid\cdot)\,/\,\pi_\theta(o_{i,t}\mid\cdot)$：</p>
+  <div class="eq">$$\mathbb{D}_{\mathrm{KL}}\big[\pi_\theta\,\|\,\pi_{\mathrm{ref}}\big] \approx x - \log x - 1$$
+    <div class="eq-src">Shao et al., 2024, Eq. (4)，引自 Schulman (2020) "Approximating KL Divergence" 中的 k3 估计器</div></div>
+  <figure class="fig wide" id="fig-kl">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 6.2</span>为什么用 $x-\log x-1$：两种逐样本 KL 估计器</div><span class="badge live">实时计算</span></div>
+    <div data-fig="kl"></div>
+    <figcaption class="fig-caption"><p>两者在 $o\sim\pi_\theta$ 下的期望都等于真实 KL（因为 $\mathbb{E}_{\pi_\theta}[x]=1$），但朴素的 $-\log x$ 单个样本可以是<b>负数</b>，而 $x-\log x-1$ 永远 $\ge 0$（它是 $\log$ 在 $x=1$ 处的切线与曲线之间的距离）。右侧用一个 4-token 小词表做了精确验证。</p></figcaption>
+  </figure>
+  <p>DeepSeekMath 7B 用 GRPO 训练时：策略学习率 $10^{-6}$，KL 系数 $\beta=0.04$，每题采样 $G=64$ 个回答，每轮探索后只更新一次。仅用 GSM8K 与 MATH 相关的约 14.4 万道题做 RL，GSM8K 从 82.9% 提到 88.2%，MATH 从 46.8% 提到 51.7%。</p>
+
+  <h3 id="ch6-r1">DeepSeek-R1：判卷式奖励 + GRPO</h3>
+  <p>DeepSeek-R1（2025）把 GRPO 推到了聚光灯下。其中的 DeepSeek-R1-Zero 直接从基座模型开始做 RL，不经过 SFT，并且<strong>只用规则奖励</strong>：答案是否正确（数学题对比标准答案、编程题跑测试用例），以及格式是否规范。论文明确表示不使用神经网络奖励模型，因为它在大规模 RL 中容易被"作弊"。这类"由程序判对错"的做法后来常被称为 <span class="term" data-tip="Reinforcement Learning with Verifiable Rewards：奖励由可自动验证的规则给出，例如答案是否与标准答案一致、代码是否通过测试。">RLVR</span>。训练中，模型的回答自发变长，并出现反思、验算等行为。</p>
+
+  <h3 id="ch6-flaw">遗留问题：只奖励"对"，会教出过度自信</h3>
+  <p>RLVR 的奖励只看答案对不对，不在乎模型对自己的答案有多大把握。设想模型对某道题其实只有 60% 的把握：如果它从自己的分布里采样答案，期望奖励等于答对的概率，对答案分布是<em>线性</em>的，最优解是把全部概率压到最可能的那个答案上。于是模型学会了<strong>斩钉截铁</strong>，哪怕它其实拿不准。</p>
+  <div class="callout paper"><span class="label">论文证据</span><p>OpenJev-RLCD 论文的实验中，GRPO 训练后的模型需要温度 $T\approx7$ 才能把置信度"压回"校准状态（$T=1$ 表示原本就校准）。而且温度缩放只能整体压低置信度，修不好它<em>排序</em>上的问题：错得最离谱的题，它往往也同样自信。下一章就从这里出发。</p></div>
+  <details class="quiz"><summary>GRPO 的组均值基线和第 2 章的 REINFORCE 基线，本质上是同一个东西吗？</summary><div class="answer"><p>思想相同：都是"得分减去一个与当前动作无关的参照"。区别在于 GRPO 的参照来自<em>同一道题</em>的其他采样，因此自动适应题目难度。一个有趣的事实：$r_i-\mathrm{mean}(\mathbf r)=\tfrac{G-1}{G}\big(r_i-\tfrac{1}{G-1}\sum_{j\ne i}r_j\big)$，即减组均值<em>恰好</em>是"留一基线"乘上常数 $\tfrac{G-1}{G}$，仍然无偏。真正引入偏差的是再除以组内标准差，因为标准差依赖于样本自己。后续工作（如 Dr. GRPO）专门讨论过这一点。第 7 章的 RLCD 直接使用不除标准差的留一基线。</p></div></details>
+</section>
+<section class="chapter" id="ch7" style="--chap:var(--c-rlcd)">
+  <div class="chapter-head"><div class="chapter-num">07</div><div><div class="eyebrow">Chapter 7 · RLCD</div><h2>RLCD：让模型说出的概率靠得住</h2><p class="tagline">Reinforcement Learning for Calibrated Decisions：奖励不再只问"对不对"，还问"你说的把握准不准"。</p></div></div>
+
+  <div class="callout paper"><span class="label">名字的来历</span><p>"RLCD（Reinforcement Learning for Calibrated Decisions）"这个名字来自 TypeSafe AI 的决策模型产品 Jev。官网把它与 RLHF（造就了"聊天模型"）、RLVR（造就了"推理模型"）并列，称之为"一种新的训练算法"，但<strong>没有公开算法细节</strong>。本章讲解的是第一个公开、可复现的实现：<b>OpenJev-RLCD</b>（Gao &amp; Wang，arXiv:2609.38850，2026 年 9 月）。与它思路相近的前序工作是 RLCR（Damani 等，2025）。注意：2023 年还有一篇缩写同为 RLCD 的论文（RL from Contrastive Distillation，arXiv:2307.12950），与本章内容无关。</p></div>
+
+  <h3 id="ch7-why">为什么要"校准"？</h3>
+  <p><strong>决策模型</strong>回答的是"这个计划会成功吗？""这个答案对吗？""该选哪个选项？"这类问题，并给出一个概率分布。所谓<strong>校准</strong>（calibration），是指模型的置信度与它的实际正确率一致：在所有它说"80% 把握"的判断里，恰好约 80% 是对的。</p>
+  <p>校准的价值往往比准确率本身更大。下游系统可以<strong>把有把握的决策自动执行，把没把握的交给人工</strong>，而这一切只依赖模型自己的置信度，不需要额外的标签。前提是：它说有把握的时候，真的有把握。</p>
+  <figure class="fig wide" id="fig-calib">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.1</span>自动执行还是转人工？过度自信 vs 校准</div><span class="badge schematic">示意 · 合成数据</span></div>
+    <div data-fig="calib"></div>
+    <figcaption class="fig-caption"><p>同一批 400 道题（合成数据，指标由页面实时计算），两个模型的准确率完全相同，差别只在于给出的置信度。每个点是一道题，按置信度从低到高排列，绿色为答对、红色为答错。拖动阈值：阈值右边的题自动执行，左边的转人工。<b>过度自信</b>的模型几乎所有题都报 0.9 以上，提高阈值也筛不掉错误；<b>校准</b>的模型提高阈值后，自动执行部分的错误率会明显下降。右侧是两者的可靠性图（对角线 = 完美校准）。</p></figcaption>
+  </figure>
+  <h3 id="ch7-proper">把奖励换成"恰当评分规则"</h3>
+  <p>想让模型说实话，奖励就必须满足：<strong>只有如实报告自己的真实信念，期望得分才最高</strong>。满足这一点的打分方式叫<strong>严格恰当评分规则</strong>（strictly proper scoring rule）。RLCD 论文使用（平移、取负后的）Brier 分数：</p>
+  <div class="eq">$$J(u, y) \;=\; 2u_y - \|u\|^2 \;=\; 1 - \|u - e_y\|^2,\qquad \mathbb{E}_{Y\sim q}\big[J(u,Y)\big] = 2u^{\top}q - \|u\|^2$$
+    <div class="eq-src">Gao &amp; Wang, 2026, §2；$u$ 是模型报告的分布，$e_y$ 是真实结果的独热向量，$q$ 是结果的真实分布</div></div>
+  <p>右边的期望是 $u$ 的<em>凹二次函数</em>，对 $u$ 求导得 $2q-2u$，所以唯一最大值在 $u=q$：<strong>说实话得分最高</strong>。对比 RLVR 的"答对得 1"：从 $u$ 里采样答案时，期望奖励 $=u^{\top}q$ 对 $u$ 是线性的，最大值永远在"全押一个答案"的顶点上。</p>
+  <figure class="fig wide" id="fig-proper">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.2</span>报多大的概率最划算？两种奖励的期望得分曲线</div><span class="badge live">实时计算</span></div>
+    <div data-fig="proper"></div>
+    <figcaption class="fig-caption"><p>一道是/否题，"是"的真实概率为 $q$。横轴是模型报告的概率 $p$，曲线是期望得分。左图（RLVR，按 $p$ 采样作答，答对得 1）是一条直线，最优点总在 0 或 1；右图（Brier 与对数分数）最优点恰好落在 $p=q$。拖动 $q$ 看最优点如何移动。</p></figcaption>
+  </figure>
+
+  <h4>不采样答案，直接"读出"概率</h4>
+  <p>推理模型先写一段推理 $r\sim\pi_\theta(\cdot\mid x)$，直到写出标记 <code>Answer:</code>。RLCD 此时<strong>不再采样</strong>下一个 token，而是直接读出它在 $K$ 个选项 token 上的分布：</p>
+  <div class="eq">$$u_\theta(x,r) = \mathrm{softmax}\big(\mathrm{logits}_\theta(x,r)[\text{选项 token}]\big)\in\Delta^K,\qquad R = J\big(u_\theta(x,r),\,Y\big)$$</div>
+  <p>这相当于对"采样一个答案"做了 Rao–Blackwell 化：方差更小，而且模型的"把握"直接进入了奖励。</p>
+
+  <h3 id="ch7-identity">一个诱人的陷阱：给"混合分布"打分</h3>
+  <p>既然每题采样 $M$ 条推理，一个自然的想法是先把它们的读数平均成混合分布 $p=\mathbb{E}_r[u(r)]$，再给 $p$ 打分。论文的命题 1 指出这样做有问题：</p>
+  <div class="eq">$${\color{#7b4ce0}J(p,q)} \;=\; {\color{#d93a63}\mathbb{E}_r\,J\big(u(r),q\big)} \;+\; {\color{#e0782b}\mathbb{E}_r\,\|u(r)-p\|^2}$$
+    <div class="eq-src">Gao &amp; Wang, 2026, Proposition 1（方差分解）</div>
+    <div class="eq-legend"><div><span class="sw" style="background:#7b4ce0"></span>混合分布的得分</div><div><span class="sw" style="background:#d93a63"></span>每条推理各自得分的平均</div><div><span class="sw" style="background:#e0782b"></span>多条推理之间的"分歧"，是一笔额外奖金</div></div></div>
+  <p>给混合分布打分，等于给"推理之间互相矛盾"发奖金，而且这份奖金不要求分歧有任何依据：策略可以靠<em>随机化自己的结论</em>把它领走。推论 1 更进一步：如果答案是采样出的独热向量，那么 $\mathbb{E}_A J(e_A,q)=2\Pr(A=Y)-1$ 正是 RLVR 的目标，分歧项则变成 Gini 不纯度。也就是说，<strong>RLVR 正是这个混合目标去掉了多样性项</strong>，所以它的最优解是众数（过度自信），而不是真实分布 $q$ 本身。</p>
+  <figure class="fig wide" id="fig-simplex">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.3</span>在概率单纯形上看方差恒等式</div><span class="badge live">实时计算</span></div>
+    <div data-fig="simplex"></div>
+    <figcaption class="fig-caption"><p>三角形内的每个点是三选项上的一个概率分布，顶点是"100% 确定"。四个彩色点是四条推理各自的读数 $u_i$（可拖动），十字是它们的平均 $p$，星号是真实分布 $q$。试试两个预设："各自校准"时每条推理都等于 $q$；"互相矛盾"时四条推理各执一词，平均下来却同样等于 $q$。两者的混合得分<b>完全相同</b>，但每条推理单独来看，后者糟糕得多。</p></figcaption>
+  </figure>
+  <p>因此 RLCD 采用<strong>逐条推理</strong>的目标（论文命题 2，$\lambda=0$）：每条推理自己的读数都要校准。只要结果 $Y$ 不受模型自己推理的影响，对每一条推理 $r$，唯一最优解都是 $u(x,r)=q(x)$，于是<strong>单次查询</strong>就是校准的。</p>
+  <h3 id="ch7-fail">两种失败模式</h3>
+  <p>逐条推理的目标在理论上很漂亮，但论文发现，直接端到端优化会以两种方式失败：</p>
+  <ol>
+    <li><strong>它会把推理关掉</strong>（"System-One 坍缩"）。推理模型习惯在推理末尾下断言，读数几乎是独热的，Brier 分数会重罚每一次自信的错误。而"空推理之后直接含糊作答"比"认真推理之后学会含糊"学得快得多，策略梯度于是把所有概率都推向空推理。在 MMLU-Pro 上，约 100 步之内四条推理都退化成只剩一个 <code>Answer:</code> 标记。加一个指向推理模型的 KL 锚（$\beta=0.04$）可以防止坍缩。</li>
+    <li><strong>它会被策略梯度的噪声淹没</strong>。即使有 KL 锚，从头训练时加上得分函数（REINFORCE）项，各项指标都比只训练读数更差，而且该项权重越大越差。原因是得分函数项的梯度范数是路径项的 7–12 倍，主导了 Adam 的二阶矩估计：有用的、低方差的读数信号只能按噪声的尺度迈步。</li>
+  </ol>
+  <figure class="fig wide" id="fig-collapse">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.4</span>失败模式示意：推理坍缩与梯度淹没</div><span class="badge schematic">示意 · 依据论文 §3.2 描述</span></div>
+    <div data-fig="collapse"></div>
+    <figcaption class="fig-caption"><p>左：训练步数推进时，四条推理的长度变化。没有 KL 锚时，推理在约 100 步内缩成空串，"推理之间读数的方差"也随之归零（对应论文 Figure 1）；有 KL 锚时推理得以保留。右：两个梯度分量的相对大小（论文报告得分函数项是路径项的 7–12 倍，RMS 统计）。曲线形状为示意，关键数字取自论文。</p></figcaption>
+  </figure>
+
+  <h3 id="ch7-algo">配方：先校准，再强化</h3>
+  <p>梯度可以拆成两半：一半是穿过读数的<strong>路径梯度</strong>，一半是强化推理的<strong>得分函数梯度</strong>（带留一基线）：</p>
+  <div class="eq">$$\widehat{\nabla}=\underbrace{\frac{1}{M}\sum_{i=1}^{M}\nabla_\theta R_i}_{\color{#2f6fdf}\text{路径项：教读数说准概率}} \;+\; \underbrace{\frac{1}{M}\sum_{i=1}^{M}\Big(R_i-\frac{1}{M-1}\sum_{j\ne i}R_j\Big)\nabla_\theta\log\pi_\theta(r_i\mid x)}_{\color{#d93a63}\text{得分函数项：强化更好的推理}}$$
+    <div class="eq-src">Gao &amp; Wang, 2026, §3.1 估计器（无偏）</div></div>
+  <p>两种失败的根源都在于两半<em>同时</em>从零开始。于是算法把它们拆成两个阶段：</p>
+  <div class="eq">$$\begin{aligned}&\textbf{阶段 1（校准决策）}: &&\mathcal{L}=-\frac{1}{M}\sum_i R_i\\[6pt]
+  &\textbf{阶段 2（强化推理）}: &&A_i=\frac{1}{M}\Big(R_i-\beta\log\frac{\pi_\theta(r_i)}{\pi_{\theta_1}(r_i)}\Big)-\text{留一均值}\\
+  & &&\mathcal{L}=-\frac{1}{M}\sum_i R_i - c\sum_i \mathrm{sg}(A_i)\log\pi_\theta(r_i\mid x)\end{aligned}$$
+    <div class="eq-src">Gao &amp; Wang, 2026, Algorithm 1；$c=0.3$，$\beta=0.04$，$\theta_1$ 为阶段 1 结束时的模型，$\mathrm{sg}$ 表示停止梯度</div></div>
+  <p>阶段 1 只走路径梯度：推理照常按当前策略采样，但不被强化，模型先学会"在自己的推理之后说出准确的概率"。阶段 2 再用<strong>同一个恰当分数</strong>当奖励来强化推理，得分函数项降权（$c=0.3$），并用 KL 锚把模型拴在校准好的阶段 1 模型 $\theta_1$ 附近，保护已经学到的东西。</p>
+  <figure class="fig wide" id="fig-rlcd">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.5</span>RLCD 的一步训练，逐步拆解</div><span class="badge live">实时计算</span></div>
+    <div data-fig="rlcd"></div>
+    <figcaption class="fig-caption"><p>一道 GSM8K-Verify 风格的是/否题（"这个解答的最终答案对吗？"），$M=4$ 条推理。推理文本和读数为示意，奖励 $R_i$、留一优势 $A_i$ 由页面按论文算法 1 实时计算（$\beta=0.04$；KL 项此处取 0，即刚从 $\theta_1$ 出发）。拖动读数可以改变每条推理报告的概率。</p></figcaption>
+  </figure>
+  <h3 id="ch7-results">实验结果</h3>
+  <p>论文在 Qwen3-1.7B 上比较了 SFT、RFT/STaR、GRPO 和 RLCD（所有基线都在验证集上做了温度缩放 TS），每种方法 3 个随机种子，并在每道测试题上做配对检验。两个任务：<b>GSM8K-Verify</b>（"这个解答的最终答案对吗？"，必须推理才能做好）和 <b>MMLU-Pro</b>（10 选 1，偏知识型）。</p>
+  <figure class="fig wide" id="fig-results">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 7.6</span>单次查询的决策质量（温度缩放之后）</div><span class="badge paper">论文数据 · Table 1</span></div>
+    <div data-fig="results"></div>
+    <figcaption class="fig-caption"><p>数字取自 OpenJev-RLCD 论文 Table 1（3 个种子的均值）。Cov@ε：按置信度排序后，在错误率不超过 ε 的前提下最多能自动处理的题目比例（GSM8K-Verify 取 ε=5%，MMLU-Pro 取 ε=20%）。$T$：在验证集上拟合出的温度，1 表示"训练出来就是校准的"。</p></figcaption>
+  </figure>
+  <p>最醒目的对比在 GSM8K-Verify 上：温度缩放后，GRPO 与 RLCD 的<strong>准确率几乎一样</strong>（91.8% vs 92.2%，差异不显著），但在 5% 的错误预算下，RLCD 单次查询能自动处理 <strong>81%</strong> 的题，GRPO 只有 <strong>19%</strong>。GRPO 需要 $T\approx7$ 才能校准，RLCD 只要 $T=1.4$。论文的分叉检查点实验还表明：从同一个阶段 1 模型出发，继续用 GRPO 的"答对"奖励训练，会把已经校准的置信度重新吹大（MMLU-Pro 上 $T$ 从 1.4 升到 3.8）。<strong>奖励必须是恰当的。</strong></p>
+  <div class="callout warn"><span class="label">适用边界</span><p>当不确定性来自<strong>标注者本身的分歧</strong>（偶然不确定性，例如 ChaosNLI 中 100 个人对同一句话判断不一）时，推理无法减少这种不确定性。论文证明此时 RLCD 不可能胜过在同样标签上的交叉熵训练；放任不管，它还会"发现"自己应该停止推理。此外，实验只覆盖了 1.7B 模型和两个推理任务。</p></div>
+  <details class="quiz"><summary>为什么温度缩放救不了 GRPO？它不是已经把置信度整体压低了吗？</summary><div class="answer"><p>温度缩放是一个<em>单调</em>变换：它能把"整体偏高"的置信度压下来，但不会改变题目之间的<em>排序</em>。如果模型对错题和对题一样自信，排序本身就是乱的，压低之后错题仍然混在高置信度区，按阈值筛选就筛不出来（论文 Figure 2 中 GRPO 的风险–覆盖曲线几乎是平的）。RLCD 在训练时就用恰当分数奖励"说准概率"，排序本身也就变好了。图 7.1 中过度自信模型的情形与此相同。</p></div></details>
+</section>
+
+<section class="chapter" id="ch8" style="--chap:var(--c-ppo)">
+  <div class="chapter-head"><div class="chapter-num">08</div><div><div class="eyebrow">Chapter 8 · Summary</div><h2>总结：一条主线串起所有方法</h2><p class="tagline">每一代方法，都是在回答"梯度前面那个系数该怎么定"。</p></div></div>
+  <p>DeepSeekMath 论文提出了一个统一视角：SFT、拒绝采样、PPO、GRPO 的梯度都可以写成 $\mathbb{E}\big[\,\mathrm{GC}\cdot\nabla_\theta\log\pi_\theta\,\big]$，差别只在<strong>梯度系数</strong> GC 从哪来。沿着这条线回顾全程：</p>
+  <figure class="fig wide" id="fig-unified">
+    <div class="fig-head"><div class="fig-title"><span class="fig-no">图 8.1</span>梯度系数的演化</div><span class="badge schematic">示意</span></div>
+    <div data-fig="unified"></div>
+    <figcaption class="fig-caption"><p>点击左右箭头（或方向键）逐代查看。高亮的部分是这一代相对上一代<b>改了什么</b>，下方一句话说明它解决了什么问题。</p></figcaption>
+  </figure>
+  <h3>三种方法一览</h3>
+  <div class="table-wrap wide"><table class="cmp">
+    <thead><tr><th></th><th class="col-ppo">PPO（RLHF 中的用法）</th><th class="col-grpo">GRPO</th><th class="col-rlcd">RLCD（OpenJev-RLCD）</th></tr></thead>
+    <tbody>
+      <tr><th>原论文</th><td>Schulman 等，2017</td><td>Shao 等，2024（DeepSeekMath）</td><td>Gao &amp; Wang，2026；名称来自 TypeSafe AI 的 Jev</td></tr>
+      <tr><th>奖励</th><td>奖励模型打分 − 逐 token KL 惩罚</td><td>奖励模型或规则判卷（对/错）</td><td>读出分布的严格恰当评分（Brier / 对数分数）</td></tr>
+      <tr><th>基线 / 优势</th><td>价值网络 + GAE，逐 token 不同</td><td>组均值与组标准差，同一回答内共享</td><td>留一均值（不除标准差），按推理条</td></tr>
+      <tr><th>价值网络</th><td>需要（与策略同规模）</td><td>不需要</td><td>不需要</td></tr>
+      <tr><th>KL 放在哪</th><td>混进每个 token 的奖励</td><td>直接加在损失里（k3 估计器）</td><td>阶段 2 作为优势的修正项，锚定阶段 1 模型</td></tr>
+      <tr><th>更新幅度控制</th><td>比例裁剪 $\epsilon$</td><td>比例裁剪 $\epsilon$</td><td>得分函数项降权 $c=0.3$ + KL 锚</td></tr>
+      <tr><th>优化的是</th><td>人类偏好（经奖励模型近似）</td><td>答对的概率</td><td>答对，且报告的概率与正确率一致</td></tr>
+      <tr><th>主要局限</th><td>四个模型，显存与工程成本高</td><td>全对/全错的题没有信号；容易过度自信</td><td>需要可读出的选项分布；对偶然不确定性帮助有限；实验规模尚小</td></tr>
+    </tbody></table></div>
+  <p>回头看，这条路线上的每一步都很"小"：<b>减基线</b>降方差 → <b>学基线</b>（评论家）适应每个状态 → <b>限步长</b>（信任域、裁剪）让数据可以复用 → 搬到 <b>token 级 MDP</b> 上训练大模型 → <b>用同题多采样代替评论家</b>省掉一个大模型 → <b>把奖励换成恰当评分</b>，让模型连"把握"一起学对。理解了"得分减去参照水平"和"别一步迈太大"这两件事，就理解了这条主线的大半。</p>
+</section>
+
+<section class="chapter" id="refs" style="--chap:var(--ink-2)">
+  <div class="chapter-head"><div class="chapter-num">↗</div><div><div class="eyebrow">References</div><h2>参考文献与本地 PDF</h2><p class="tagline">核心三篇原论文和主要支撑论文已下载到 <code>papers/</code> 目录。</p></div></div>
+  <h4>核心论文</h4>
+  <ol class="refs" style="--chap:var(--c-ppo)">
+    <li class="core"><b>Proximal Policy Optimization Algorithms.</b> J. Schulman, F. Wolski, P. Dhariwal, A. Radford, O. Klimov. 2017.<div class="links"><a href="papers/01_PPO_Schulman2017_1707.06347.pdf">本地 PDF</a><a href="https://arxiv.org/abs/1707.06347">arXiv:1707.06347</a></div></li>
+    <li class="core"><b>DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models.</b>（提出 GRPO）Z. Shao, P. Wang, Q. Zhu, R. Xu, J. Song, X. Bi, H. Zhang, M. Zhang, Y. K. Li, Y. Wu, D. Guo. 2024.<div class="links"><a href="papers/02_GRPO_DeepSeekMath_Shao2024_2402.03300.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2402.03300">arXiv:2402.03300</a></div></li>
+    <li class="core"><b>OpenJev-RLCD: A Working RLCD Implementation.</b> Z. Gao, P. Wang. 2026.（第一个公开的 RLCD 算法）<div class="links"><a href="papers/03_RLCD_OpenJev-RLCD_Gao2026_2609.38850.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2609.38850">arXiv:2609.38850</a><a href="https://github.com/ZimmyGao/openjev-rlcd">代码</a></div></li>
+  </ol>
+  <h4>支撑论文（已下载到 <code>papers/supporting/</code>）</h4>
+  <ol class="refs" style="counter-reset: ref 3">
+    <li><b>Trust Region Policy Optimization.</b> J. Schulman, S. Levine, P. Moritz, M. Jordan, P. Abbeel. ICML 2015.<div class="links"><a href="papers/supporting/TRPO_Schulman2015_1502.05477.pdf">本地 PDF</a><a href="https://arxiv.org/abs/1502.05477">arXiv:1502.05477</a></div></li>
+    <li><b>High-Dimensional Continuous Control Using Generalized Advantage Estimation.</b> J. Schulman, P. Moritz, S. Levine, M. Jordan, P. Abbeel. ICLR 2016.<div class="links"><a href="papers/supporting/GAE_Schulman2015_1506.02438.pdf">本地 PDF</a><a href="https://arxiv.org/abs/1506.02438">arXiv:1506.02438</a></div></li>
+    <li><b>Training Language Models to Follow Instructions with Human Feedback</b>（InstructGPT）. L. Ouyang 等. NeurIPS 2022.<div class="links"><a href="papers/supporting/InstructGPT_Ouyang2022_2203.02155.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2203.02155">arXiv:2203.02155</a></div></li>
+    <li><b>DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning.</b> DeepSeek-AI. 2025.<div class="links"><a href="papers/supporting/DeepSeek-R1_2025_2501.12948.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2501.12948">arXiv:2501.12948</a></div></li>
+    <li><b>Beyond Binary Rewards: Training LMs to Reason About Their Uncertainty</b>（RLCR）. M. Damani, I. Puri, S. Slocum, I. Shenfeld, L. Choshen, Y. Kim, J. Andreas. 2025.<div class="links"><a href="papers/supporting/RLCR_Damani2025_2507.16806.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2507.16806">arXiv:2507.16806</a></div></li>
+    <li><b>StartLux-Decision: AutoThink Decision Models with Reinforcement Learning for Calibrated Deliberative Decisions</b>（RLCD²）. X. Zhuang 等. 2026.<div class="links"><a href="papers/supporting/RLCD2_StartLux-Decision_2026_2610.17309.pdf">本地 PDF</a><a href="https://arxiv.org/abs/2610.17309">arXiv:2610.17309</a></div></li>
+  </ol>
+  <h4>其他引用（未下载）</h4>
+  <ol class="refs" style="counter-reset: ref 9">
+    <li>R. J. Williams. <b>Simple Statistical Gradient-Following Algorithms for Connectionist Reinforcement Learning.</b> Machine Learning 8, 1992.（REINFORCE）</li>
+    <li>R. S. Sutton, D. McAllester, S. Singh, Y. Mansour. <b>Policy Gradient Methods for Reinforcement Learning with Function Approximation.</b> NeurIPS 1999.</li>
+    <li>P. Christiano 等. <b>Deep Reinforcement Learning from Human Preferences.</b> 2017.<div class="links"><a href="https://arxiv.org/abs/1706.03741">arXiv:1706.03741</a></div></li>
+    <li>J. Schulman. <b>Approximating KL Divergence.</b> 博客，2020.<div class="links"><a href="http://joschu.net/blog/kl-approx.html">joschu.net</a></div></li>
+    <li>Q. Yu 等. <b>DAPO: An Open-Source LLM Reinforcement Learning System at Scale.</b> 2025.<div class="links"><a href="https://arxiv.org/abs/2503.14476">arXiv:2503.14476</a></div></li>
+    <li>Z. Liu 等. <b>Understanding R1-Zero-Like Training: A Critical Perspective</b>（Dr. GRPO）. 2025.<div class="links"><a href="https://arxiv.org/abs/2503.20783">arXiv:2503.20783</a></div></li>
+    <li>G. W. Brier. <b>Verification of Forecasts Expressed in Terms of Probability.</b> 1950；T. Gneiting, A. E. Raftery. <b>Strictly Proper Scoring Rules, Prediction, and Estimation.</b> JASA 2007.</li>
+    <li>TypeSafe AI. <b>Jev: calibrated decisions for AI agents</b>（产品文档，RLCD 名称出处）.<div class="links"><a href="https://typesafe.ai">typesafe.ai</a></div></li>
+    <li>同名不同物：K. Yang 等. <b>RLCD: Reinforcement Learning from Contrastive Distillation for LM Alignment.</b> 2023.（与本教程的 RLCD 无关）<div class="links"><a href="https://arxiv.org/abs/2307.12950">arXiv:2307.12950</a></div></li>
+  </ol>
+  <footer class="footer"><p>本页所有"实时计算"的动画都调用 <code>js/math/rl-core.js</code> 与 <code>js/math/rl-llm.js</code>，可用 <code>node --test tests/</code> 运行单元测试，检查它们与论文定义的一致性。公式渲染使用本地打包的 KaTeX 0.16.11，离线即可打开。</p></footer>
+</section>
+</main>
+</div>
+<script src="lib/katex/katex.min.js"></script>
+<script src="lib/katex/auto-render.min.js"></script>
+<script src="js/math/rl-core.js"></script>
+<script src="js/math/rl-llm.js"></script>
+<script src="js/core/canvas.js"></script>
+<script src="js/core/ui.js"></script>
+<script src="js/figs/lineage.js"></script>
+<script src="js/figs/loop.js"></script>
+<script src="js/figs/grid.js"></script>
+<script src="js/figs/bandit.js"></script>
+<script src="js/figs/gae.js"></script>
+<script src="js/figs/clip.js"></script>
+<script src="js/figs/ppo.js"></script>
+<script src="js/figs/mdp.js"></script>
+<script src="js/figs/models.js"></script>
+<script src="js/figs/group.js"></script>
+<script src="js/figs/kl.js"></script>
+<script src="js/figs/calib.js"></script>
+<script src="js/figs/proper.js"></script>
+<script src="js/figs/simplex.js"></script>
+<script src="js/figs/collapse.js"></script>
+<script src="js/figs/rlcd.js"></script>
+<script src="js/figs/results.js"></script>
+<script src="js/figs/unified.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

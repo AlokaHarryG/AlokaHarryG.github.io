@@ -1,0 +1,218 @@
+/* figures.css — 各个交互图专用的样式 */
+
+/* ---------- 导读路线卡片 ---------- */
+.roadmap { list-style: none; counter-reset: rm; padding: 0; margin: 1.6rem 0 2rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(228px, 1fr)); gap: 12px; }
+.roadmap li { counter-increment: rm; background: var(--surface); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: var(--radius); padding: 13px 16px 14px; box-shadow: 0 1px 2px rgba(0, 0, 0, .03); transition: transform .2s, box-shadow .2s; }
+.roadmap li:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.roadmap li b { display: block; font-size: 1rem; color: var(--c); margin-bottom: 4px; }
+.roadmap li b::before { content: counter(rm, decimal-leading-zero); font: 600 .78rem var(--font-mono); color: var(--ink-3); margin-right: 8px; }
+.roadmap li span { display: block; font-size: .9rem; line-height: 1.62; color: var(--ink-2); }
+.tag-live, .tag-schematic, .tag-paper { font-size: .78em; padding: 0 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.tag-live { color: var(--pos); border-color: color-mix(in srgb, var(--pos) 40%, transparent); }
+.tag-schematic { color: var(--ink-3); border-color: var(--line-2); }
+.tag-paper { color: var(--c-rlcd); border-color: color-mix(in srgb, var(--c-rlcd) 40%, transparent); }
+
+/* ---------- 通用侧栏 ---------- */
+.side-panel { font-size: .88rem; line-height: 1.6; min-width: 0; }
+.backup { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px; }
+.backup .bk-title { font-weight: 700; margin-bottom: 6px; }
+.backup table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+.backup th, .backup td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); font-family: var(--font-mono); white-space: nowrap; }
+.backup th:first-child, .backup td:first-child { text-align: left; font-family: var(--font-sans); }
+.backup th { font-weight: 600; color: var(--ink-3); font-size: .76rem; }
+.backup tr.best td { background: color-mix(in srgb, var(--chap) 13%, transparent); color: var(--ink); }
+.backup p { margin: 8px 0 0; }
+.backup .muted { font-size: .92em; }
+.stat.msg b { font-family: var(--font-sans); font-weight: 600; color: var(--ink-2); }
+.lab { display: inline-block; font-size: .72rem; font-weight: 750; letter-spacing: .06em; color: #fff; background: var(--chap); border-radius: 6px; padding: 1px 8px; margin-right: 10px; vertical-align: 1px; }
+
+/* ---------- 图 5.1 逐 token 生成 ---------- */
+.mdp-prompt, .grp-q, .rc-q { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 14px; font-size: .95rem; margin-bottom: 12px; }
+.mdp-seq { display: flex; flex-wrap: wrap; gap: 6px; min-height: 86px; align-content: flex-start; }
+.tok { display: grid; grid-template-rows: 30px 16px 44px; justify-items: center; min-width: 38px; padding: 4px 6px 2px; border-radius: 9px; border: 1px solid var(--line); background: var(--surface); opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s, border-color .2s; }
+.tok.on, .tok.cur { opacity: 1; transform: none; }
+.tok.cur { border: 1.5px dashed var(--chap); }
+.tok.cur .tx { color: transparent; }
+.tok .tx { font-weight: 650; font-size: .98rem; line-height: 30px; white-space: nowrap; }
+.tok.last .tx { font-family: var(--font-mono); font-size: .78rem; color: var(--ink-3); }
+.tok .num { font: 500 .66rem var(--font-mono); color: var(--ink-3); }
+.tok .bar { position: relative; width: 14px; height: 44px; border-bottom: 0; }
+.tok .bar::before { content: ""; position: absolute; left: -6px; right: -6px; top: 22px; border-top: 1px solid var(--line-2); }
+.tok .bar i { position: absolute; left: 0; width: 14px; border-radius: 3px; transition: height .5s, top .5s; }
+.tok .bar i.p { background: var(--pos); } .tok .bar i.n { background: var(--neg); }
+.mdp[data-view="ppo"] .tok .bar i { background: var(--c-ac); }
+.mdp.done .tok.last { border-color: var(--pos); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pos) 18%, transparent); }
+.mdp-panel { margin-top: 14px; background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 16px; min-height: 118px; font-size: .9rem; }
+.mp-title { font-weight: 650; margin-bottom: 8px; }
+.mp-title .pos { color: var(--pos); }
+.mp-row { display: grid; grid-template-columns: 70px 1fr 48px; gap: 10px; align-items: center; padding: 3px 8px; border-radius: 7px; transition: background .25s; }
+.mp-tok { font-weight: 650; }
+.mp-bar { height: 10px; background: var(--surface); border-radius: 5px; overflow: hidden; }
+.mp-bar i { display: block; height: 100%; background: var(--ink-3); border-radius: 5px; }
+.mp-row.chosen { background: color-mix(in srgb, var(--chap) 14%, transparent); }
+.mp-row.chosen .mp-bar i { background: var(--chap); }
+.mp-p { font: 500 .8rem var(--font-mono); text-align: right; }
+.mp-note { color: var(--ink-3); font-size: .84rem; margin-top: 6px; }
+
+/* ---------- 图 5.2 四个模型 ---------- */
+.models-scroll { overflow-x: auto; }
+.models-svg { width: 100%; min-width: 640px; height: auto; }
+.mn rect { fill: var(--surface); stroke: var(--line-2); stroke-width: 1.5; }
+.mn.train rect { fill: color-mix(in srgb, var(--c-rlhf) 12%, var(--surface)); stroke: var(--c-rlhf); stroke-width: 2; }
+.mn.frozen rect { stroke-dasharray: 5 4; stroke: var(--ink-3); }
+.mn.op rect { fill: color-mix(in srgb, var(--c-grpo) 10%, var(--surface)); stroke: color-mix(in srgb, var(--c-grpo) 60%, transparent); }
+.mn.loss rect { fill: var(--ink); stroke: var(--ink); }
+.mn.loss text { fill: #fff !important; }
+.mn.data rect, .mn .stack-back { fill: var(--surface-2); stroke: var(--line-2); }
+.mn.ghost rect { fill: transparent; stroke: var(--line-2); stroke-dasharray: 3 4; }
+.mn.ghost text { fill: var(--ink-3) !important; }
+.mn .strike { stroke: var(--neg); stroke-width: 2.5; }
+.mn text.main { font: 700 13px var(--font-sans); fill: var(--ink); }
+.mn text.sub { font: 500 10.5px var(--font-mono); fill: var(--ink-3); }
+.me-line { fill: none; stroke: var(--ink-3); stroke-width: 1.6; }
+.arrowhead { fill: var(--ink-3); }
+.me-label { font: 600 11px var(--font-sans); fill: var(--ink-2); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; }
+.me-dot { fill: var(--chap); filter: drop-shadow(0 0 4px color-mix(in srgb, var(--chap) 70%, transparent)); }
+.models .m-ppo, .models .m-grpo { transition: opacity .45s; }
+.models[data-mode="ppo"] .m-grpo, .models[data-mode="grpo"] .m-ppo { opacity: 0; pointer-events: none; }
+.mem { margin-top: 10px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius-sm); font-size: .9rem; }
+.mem-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.mem-chip { padding: 6px 12px; border-radius: 9px; font-weight: 650; border: 1.5px solid var(--line-2); background: var(--surface); }
+.mem-chip.train { border-color: var(--c-rlhf); background: color-mix(in srgb, var(--c-rlhf) 12%, var(--surface)); }
+.mem-chip.frozen { border-style: dashed; }
+.mem-chip small { font-weight: 500; color: var(--ink-3); margin-left: 6px; }
+.mem-note { font-size: .82rem; color: var(--ink-3); }
+
+/* ---------- 图 6.1 GRPO 组内优势 ---------- */
+.grp-head, .g-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 52px 34px 30px minmax(150px, 30%); gap: 10px; align-items: center; }
+.grp-head { font-size: .76rem; color: var(--ink-3); font-weight: 650; padding: 0 12px 6px; }
+.grp-head small { font-weight: 500; margin-left: 6px; }
+.grp-list { display: flex; flex-direction: column; gap: 5px; }
+.g-row { width: 100%; text-align: left; font: inherit; font-size: .9rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; cursor: pointer;
+  opacity: 0; transform: translateX(-8px); transition: opacity .4s var(--d), transform .4s var(--d), border-color .2s, box-shadow .2s; }
+.grp.st-in .g-row { opacity: 1; transform: none; }
+.g-row:hover { border-color: var(--chap); box-shadow: var(--shadow); }
+.g-i { color: var(--ink-3); font-size: .8rem; }
+.g-text { min-width: 0; }
+.g-text .sn { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 6px; transition: background .5s; }
+.grp.st-adv .g-text .sn { background: var(--tint); }
+.g-ans { color: var(--ink-2); text-align: center; font-size: .86rem; }
+.g-mark { font-weight: 800; font-size: 1.05rem; text-align: center; opacity: 0; transform: scale(.4); transition: opacity .3s, transform .35s cubic-bezier(.3, 1.6, .5, 1); transition-delay: calc(var(--d) * .6); }
+.grp.st-judge .g-mark { opacity: 1; transform: none; }
+.g-row.ok .g-mark { color: var(--pos); } .g-row.bad .g-mark { color: var(--neg); }
+.g-r { text-align: center; opacity: 0; transition: opacity .3s; }
+.grp.st-judge .g-r { opacity: 1; }
+.g-adv { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px; align-items: center; opacity: 0; transition: opacity .3s; }
+.grp.st-stats .g-adv { opacity: 1; }
+.g-adv em { font-style: normal; font-size: .8rem; text-align: right; opacity: 0; transition: opacity .3s .3s; }
+.grp.st-adv .g-adv em { opacity: 1; }
+.g-adv .trk { position: relative; height: 14px; background: var(--surface-2); border-radius: 7px; }
+.g-adv .zero { position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1.5px solid var(--ink-3); }
+.g-adv .bar { position: absolute; top: 2px; height: 10px; border-radius: 5px; transform: scaleX(0); transition: transform .6s cubic-bezier(.3, .7, .3, 1), width .35s, left .35s; }
+.g-adv .bar.p { background: var(--pos); transform-origin: left center; }
+.g-adv .bar.n { background: var(--neg); transform-origin: right center; }
+.grp.st-adv .g-adv .bar { transform: scaleX(1); }
+.grp-foot { opacity: 0; transition: opacity .4s; margin-top: 10px; }
+.grp.st-stats .grp-foot { opacity: 1; }
+@media (max-width: 640px) {
+  .grp-head, .g-row { grid-template-columns: 26px minmax(0, 1fr) 34px 24px 112px; gap: 6px; }
+  .grp-head span:nth-child(5), .g-r { display: none; }
+}
+
+/* ---------- 图 6.2 KL 表格 ---------- */
+.kl-table td.negv { color: var(--neg); font-weight: 700; }
+.kl-table p { font-size: .86rem; }
+
+/* ---------- 图 7.3 方差恒等式面板 ---------- */
+.ident { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 14px 16px; }
+.ident-row { display: grid; grid-template-columns: minmax(0, 1fr) 62px; gap: 2px 10px; align-items: center; }
+.ident-row .il { grid-column: 1 / -1; font-size: .84rem; font-weight: 650; }
+.ident-row b { text-align: right; font-size: .9rem; }
+.ib { position: relative; height: 14px; background: var(--surface); border-radius: 7px; }
+.ib::after { content: ""; position: absolute; left: 50%; top: -3px; bottom: -3px; border-left: 1.5px solid var(--ink-3); }
+.ib i { position: absolute; top: 2px; height: 10px; border-radius: 5px; transition: width .15s, left .15s; }
+.ident-row.mix .il { color: var(--c-ppo); } .ident-row.mix .ib i { background: var(--c-ppo); }
+.ident-row.per .il { color: var(--c-rlcd); } .ident-row.per .ib i { background: var(--c-rlcd); }
+.ident-row.var .il { color: var(--c-grpo); } .ident-row.var .ib i { background: var(--c-grpo); }
+.ident-op { text-align: center; font: 700 1.1rem var(--font-mono); color: var(--ink-3); line-height: 1.3; }
+.ident-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.ident-chips span { font-size: .78rem; border-left: 3px solid var(--c); background: var(--surface); padding: 2px 8px; border-radius: 4px; }
+.ident-note { font-size: .82rem; color: var(--ink-3); margin: 10px 0 0; }
+
+/* ---------- 图 7.5 RLCD 逐步拆解 ---------- */
+.rc-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.rc-steps button { font: 600 .82rem var(--font-sans); padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--ink-3); cursor: pointer; transition: all .2s; }
+.rc-steps button.done { color: var(--chap); border-color: color-mix(in srgb, var(--chap) 45%, transparent); }
+.rc-steps button[aria-selected="true"] { background: var(--chap); border-color: var(--chap); color: #fff; }
+.rc-q .opt { margin-left: 10px; color: var(--ink-3); font-size: .88rem; }
+.rc-q .y-reveal { margin-left: 12px; padding: 1px 10px; border-radius: 999px; background: var(--c-rlcd); color: #fff; font-size: .86rem; opacity: 0; transition: opacity .4s; }
+.rlcd.ge2 .y-reveal { opacity: 1; }
+.rc-head, .rc-row { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(170px, 27%) 62px 62px; gap: 10px; align-items: center; }
+.rc-head { font-size: .76rem; font-weight: 650; color: var(--ink-3); padding: 0 12px 6px; }
+.rc-row { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; margin-bottom: 5px; font-size: .88rem; transition: background .4s, border-color .4s; }
+.rc-row.up { background: color-mix(in srgb, var(--pos) 9%, var(--surface)); border-color: color-mix(in srgb, var(--pos) 45%, transparent); }
+.rc-row.down { background: color-mix(in srgb, var(--neg) 8%, var(--surface)); border-color: color-mix(in srgb, var(--neg) 40%, transparent); }
+.rc-i { color: var(--ink-3); }
+.rc-text { min-width: 0; line-height: 1.55; }
+.rc-text .ans { display: inline-block; margin-left: 6px; font-size: .74rem; background: var(--ink); color: #fff; border-radius: 5px; padding: 0 6px; }
+.rc-badge:empty { display: none; }
+.rc-badge { display: inline-block; margin-left: 8px; font-size: .74rem; font-weight: 700; padding: 0 8px; border-radius: 999px; background: var(--surface-2); color: var(--ink-3); }
+.rc-row.up .rc-badge { background: var(--pos); color: #fff; } .rc-row.down .rc-badge { background: var(--neg); color: #fff; }
+.rc-read, .rc-R, .rc-A { opacity: 0; transition: opacity .4s; }
+.rlcd.ge1 .rc-read, .rlcd.ge3 .rc-R, .rlcd.ge5 .rc-A { opacity: 1; }
+.rc-read { display: grid; gap: 2px; }
+.rc-read .rb { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--surface-2); }
+.rc-read .rb i { display: block; height: 100%; transition: width .15s; }
+.rc-read .rb .yes { background: var(--c-pg); } .rc-read .rb .no { background: var(--c-rlcd); }
+.rlcd.ge2 .rc-read .rb .no { box-shadow: inset 0 0 0 2px var(--ink); }
+.rc-read input { width: 100%; margin: 0; accent-color: var(--chap); }
+.rc-read small { font-size: .72rem; color: var(--ink-3); }
+.rc-grad { font-size: .72rem; color: var(--c-pg); font-weight: 700; display: none; }
+.rlcd.at4 .rc-grad { display: block; }
+.rc-R, .rc-A { text-align: right; font-weight: 650; }
+.rc-expl { margin-top: 10px; background: var(--surface-2); border-radius: var(--radius-sm); padding: 12px 16px; min-height: 132px; font-size: .9rem; }
+.rc-expl-k { font-weight: 750; color: var(--chap); margin-bottom: 4px; }
+.rc-expl p { margin: 0 0 6px; }
+@media (max-width: 720px) {
+  .rc-head { display: none; }
+  .rc-row { grid-template-columns: 24px minmax(0, 1fr) 56px 56px; }
+  .rc-read { grid-column: 2 / -1; grid-row: 2; }
+}
+
+/* ---------- 图 7.6 论文结果 ---------- */
+.res-hint { font-size: .9rem; margin-bottom: 10px; }
+.res-list { display: flex; flex-direction: column; gap: 7px; }
+.res-row { display: grid; grid-template-columns: minmax(150px, 27%) minmax(0, 1fr) 120px; gap: 12px; align-items: center; font-size: .88rem; }
+.res-row .rn { color: var(--ink-2); }
+.res-row.k-rlcd .rn { color: var(--c-rlcd); font-weight: 750; }
+.res-row.k-grpo .rn { color: var(--c-grpo); font-weight: 650; }
+.res-row .rt { position: relative; height: 18px; background: var(--surface-2); border-radius: 6px; }
+.res-row .rb { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; background: color-mix(in srgb, var(--c) 72%, transparent); transition: width .6s cubic-bezier(.3, .7, .3, 1); }
+.res-row.k-rlcd1 .rb { background: color-mix(in srgb, var(--c) 40%, transparent); }
+.res-row .rw { position: absolute; top: 8px; height: 2px; background: var(--ink); transition: left .6s, width .6s, opacity .3s; }
+.res-row .r1 { position: absolute; top: -3px; bottom: -3px; border-left: 2px dashed var(--ink); transition: opacity .3s; }
+.res-row .rv { font-size: .82rem; text-align: right; }
+.res-note { margin-top: 12px; padding: 10px 14px; border-left: 3px solid var(--chap); background: color-mix(in srgb, var(--chap) 6%, var(--surface)); border-radius: 0 8px 8px 0; font-size: .9rem; }
+@media (max-width: 640px) { .res-row { grid-template-columns: minmax(0, 1fr) 96px; } .res-row .rt { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ---------- 图 8.1 梯度系数的演化 ---------- */
+.uni { outline: none; }
+.uni-track { display: grid; }
+.uni-card { grid-area: 1 / 1; border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: var(--radius); padding: 16px 20px; background: var(--surface); opacity: 0; transform: translateX(24px); pointer-events: none; transition: opacity .45s, transform .45s; }
+.uni-card.past { transform: translateX(-24px); }
+.uni-card.on { opacity: 1; transform: none; pointer-events: auto; }
+.uc-top { display: flex; align-items: baseline; gap: 12px; }
+.uc-n { color: var(--ink-3); font-size: .85rem; }
+.uc-name { font-size: 1.25rem; font-weight: 800; color: var(--c); }
+.uc-gc { margin: 10px 0 12px; padding: 4px 14px; background: var(--surface-2); border-radius: var(--radius-sm); overflow-x: auto; }
+.uc-lab { font-size: .74rem; font-weight: 700; color: var(--ink-3); }
+.uc-row { display: grid; grid-template-columns: 72px 1fr; gap: 10px; align-items: baseline; font-size: .92rem; }
+.uc-row p { margin: 0 0 6px; }
+.uc-tag { font-size: .74rem; font-weight: 750; padding: 1px 8px; border-radius: 999px; text-align: center; }
+.uc-tag.ok { background: color-mix(in srgb, var(--pos) 14%, transparent); color: var(--pos); }
+.uc-tag.left { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.uni-nav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; }
+.uni-dots { display: flex; gap: 8px; }
+.uni-dots button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--c); background: var(--surface); cursor: pointer; transition: transform .2s, background .2s; }
+.uni-dots button.past { background: color-mix(in srgb, var(--c) 45%, var(--surface)); }
+.uni-dots button[aria-current="true"] { background: var(--c); transform: scale(1.35); }
